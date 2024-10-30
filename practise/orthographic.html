@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script src="../node_modules/three/build/three.min.js"></script>
+    <script src="../node_modules/three/examples/js/controls/experimental/CameraControls.js"></script>
+    <!-- three.js-master\examples\js\controls\experimental\CameraControls.js -->
+    <script>
+      let scene, camera, renderer, controls;
+      // function init() {
+      const w = document.body.clientWidth * 0.5,
+        h = document.body.clientHeight * 0.5;
+
+      scene = new THREE.Scene(); // 场景
+      scene.background = new THREE.Color(0x00003d);
+      camera = new THREE.OrthographicCamera(
+        w / -2, // left — 摄像机视锥体左侧面。
+        w / 2, // right — 摄像机视锥体右侧面。
+        h / 2, // top — 摄像机视锥体上侧面。
+        h / -2, // bottom — 摄像机视锥体下侧面。
+        0.1, // near — 摄像机视锥体近端面。
+        500 // far — 摄像机视锥体远端面。
+      ); // 正交相机
+      camera.position.set(0, 0, 100); // camera 位置
+      // // camera.position.z = 5;
+      // camera.lookAt(0, 0);
+
+      renderer = new THREE.WebGLRenderer(); // 渲染器
+      renderer.setSize(w, h);
+      document.getElementById("container").appendChild(renderer.domElement);
+
+      // controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls = new THREE.CameraControls(camera, renderer.domElement);
+
+      const gridXOY = new THREE.GridHelper(37_300_000, 10);
+      gridXOY.rotateX(Math.PI / 2);
+      gridXOY.position.x = 50;
+      gridXOY.position.y = 50;
+
+      scene.add(gridXOY);
+
+      const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+
+      const points = [];
+      points.push(new THREE.Vector2(-10, 0));
+      points.push(new THREE.Vector2(10, 0));
+      points.push(new THREE.Vector2(0, 10));
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const line = new THREE.Line(geometry, material);
+      scene.add(line);
+      line.translateX(-1);
+
+      // 添加模型
+      animate();
+      function animate() {
+        requestAnimationFrame(animate);
+        // controls.update();
+        // cube.rotation.x += 0.01;
+        // cube.rotation.y += 0.01;
+
+        renderer.render(scene, camera);
+      }
+      // }
+
+      // window.onload = init();
+    </script>
+  </body>
+</html>

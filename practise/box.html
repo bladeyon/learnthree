@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script src="../node_modules/three/build/three.min.js"></script>
+    <script src="../node_modules/three/examples/js/controls/OrbitControls.js"></script>
+    <script>
+      let scene, camera, renderer, controls;
+      const ch = 4,
+        cw = 4;
+      // 导入贴图
+      let loader = new THREE.TextureLoader();
+      // top
+      let textureTop = loader.load("./assets/巷道默认顶.png");
+      // textureTop.magFilter = THREE.NearestFilter;
+      textureTop.wrapS = THREE.RepeatWrapping;
+      textureTop.wrapT = THREE.RepeatWrapping;
+      let textureBottom = loader.load("./assets/巷道默认底.png");
+      textureBottom.wrapS = THREE.RepeatWrapping;
+      textureBottom.wrapT = THREE.RepeatWrapping;
+      let textureLeft = loader.load("./assets/巷道左右帮风格1.png");
+      textureLeft.wrapS = THREE.RepeatWrapping;
+      textureLeft.wrapT = THREE.RepeatWrapping;
+      let textureRight = loader.load("./assets/巷道左右帮风格2.png");
+      textureRight.wrapS = THREE.RepeatWrapping;
+      textureRight.wrapT = THREE.RepeatWrapping;
+
+      function init() {
+        const w = document.body.clientWidth * 0.5,
+          h = document.body.clientHeight * 0.5;
+
+        scene = new THREE.Scene(); // 场景
+        // camera = new THREE.PerspectiveCamera(80, w / h, 0.1, 100); // 透视相机
+
+        camera = new THREE.OrthographicCamera(
+          w / -2, // left — 摄像机视锥体左侧面。
+          w / 2, // right — 摄像机视锥体右侧面。
+          h / 2, // top — 摄像机视锥体上侧面。
+          h / -2, // bottom — 摄像机视锥体下侧面。
+          0.1, // near — 摄像机视锥体近端面。
+          100 // far — 摄像机视锥体远端面。
+        ); // 正交相机
+        camera.position.set(0, 0, 10);
+        camera.lookAt(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer(); // 渲染器
+        renderer.setSize(w, h);
+        document.getElementById("container").appendChild(renderer.domElement);
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        const gridXOY = new THREE.GridHelper(10, 10);
+        gridXOY.rotateX(Math.PI / 2);
+        gridXOY.position.set(0, 0);
+        scene.add(gridXOY);
+        // const geometry = new THREE.BoxGeometry(1, 1, 1); // 几何体
+        // const material = new THREE.MeshBasicMaterial({ color: 0x0000dd }); // 材质
+        // const cube = new THREE.Mesh(geometry, material);
+
+        const group = generateCube(
+          new THREE.Vector3(-2, 0, ch),
+          new THREE.Vector3(3, -2, ch)
+        );
+        // group.scale = new THREE.Vector3(12, 12, 12);
+        scene.add(group);
+        // 添加模型
+        animate();
+        function animate() {
+          requestAnimationFrame(animate);
+          controls.update();
+          // cube.rotation.x += 0.01;
+          // cube.rotation.y += 0.01;
+
+          renderer.render(scene, camera);
+        }
+      }
+
+      window.onload = init();
+
+      function generateCube(p1, p2) {
+        // console.log(p1, p2);
+        // p1p2 是所在平面的中线
+        // 两点的距离
+        let d = Math.sqrt(Math.pow(p2.y - p1.y, 2) + Math.pow(p2.x - p1.x, 2));
+        // 与x轴夹角 deg
+        let deg, tan_deg, dx, dy;
+        if (p2.x - p1.x !== 0) {
+          // tan_deg = Math.abs((p2.y - p1.y) / (p2.x - p1.x));
+          tan_deg = (p2.y - p1.y) / (p2.x - p1.x);
+          deg = Math.round((Math.atan(tan_deg) * 180) / Math.PI);
+        } else {
+          deg = 90;
+        }
+        // x,y 的偏移量
+        if (!(deg === 0 || deg === 90)) {
+          dx = (cw / 2) * Math.sin((deg * Math.PI) / 180);
+          dy = (cw / 2) * Math.cos((deg * Math.PI) / 180);
+        } else if (deg === 0) {
+          dx = 0;
+          dy = cw / 2;
+        } else {
+          dx = cw / 2;
+          dy = 0;
+        }
+
+        // if (tan_deg < 0) {
+        //   [dx, dy] = [dy, dx];
+        // }
+        const group = new THREE.Group();
+
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+        const lineMaterial = new THREE.LineBasicMaterial({
+          color: 0xff0000,
+          linewidth: 10
+        });
+        const line = new THREE.Line(lineGeometry, lineMaterial);
+        group.add(line);
+
+        {
+          // Top
+          const materialTop = new THREE.MeshBasicMaterial({
+            // map: textureTop,
+            map: new THREE.CanvasTexture(getTextCanvas1()),
+            side: THREE.DoubleSide
+          });
+          const top = new THREE.Shape()
+            .moveTo(p1.x - dx, p1.y + dy, ch)
+            .lineTo(p1.x + dx, p1.y - dy, ch)
+            .lineTo(p2.x + dx, p2.y - dy, ch)
+            .lineTo(p2.x - dx, p2.y + dy, ch)
+            .lineTo(p1.x - dx, p1.y + dy, ch);
+          const geometryTop = new THREE.ShapeGeometry(top);
+          const meshTop = new THREE.Mesh(geometryTop, materialTop);
+          group.add(meshTop);
+        }
+
+        {
+          // Bottom
+          const materialBottom = new THREE.MeshBasicMaterial({
+            map: textureBottom,
+            side: THREE.DoubleSide
+          });
+          const bottom = new THREE.Shape()
+            .moveTo(p1.x - dx, p1.y + dy, 0)
+            .lineTo(p1.x + dx, p1.y - dy, 0)
+            .lineTo(p2.x + dx, p2.y - dy, 0)
+            .lineTo(p2.x - dx, p2.y + dy, 0)
+            .lineTo(p1.x - dx, p1.y + dy, 0);
+          // geometryBottom.translate(0, 0, -ch);
+          const geometryBottom = new THREE.ShapeGeometry(bottom);
+          const meshBottom = new THREE.Mesh(geometryBottom, materialBottom);
+          // group.add(meshBottom);
+        }
+        {
+          // Left
+          const materialLeft = new THREE.MeshBasicMaterial({
+            map: textureLeft,
+            side: THREE.DoubleSide
+          });
+          const left = new THREE.Shape()
+            .moveTo(p1.x - dx, p1.y + dy, ch)
+            .lineTo(p2.x + dx, p2.y + dy, ch)
+            .lineTo(p2.x + dx, p2.y + dy, 0)
+            .lineTo(p1.x - dx, p1.y + dy, 0)
+            .lineTo(p1.x - dx, p1.y + dy, ch);
+          // geometryLeft.rotateX(Math.PI / 2).translate(0, ch / 2, -ch / 2);
+          const geometryLeft = new THREE.ShapeGeometry(left);
+          const meshLeft = new THREE.Mesh(geometryLeft, materialLeft);
+          group.add(meshLeft);
+        }
+        {
+          // Right
+          const materialRight = new THREE.MeshBasicMaterial({
+            map: textureRight,
+            side: THREE.DoubleSide
+          });
+          const right = new THREE.Shape()
+            .moveTo(p1.x + dx, p1.y - dy, ch)
+            .lineTo(p2.x - dx, p2.y + dy, ch)
+            .lineTo(p2.x + dx, p2.y - dy, 0)
+            .lineTo(p1.x + dx, p1.y - dy, 0)
+            .lineTo(p1.x + dx, p1.y - dy, ch);
+          const geometryRight = new THREE.ShapeGeometry(right);
+          // const geometryRight = geometry.clone();
+          // geometryRight.rotateX(Math.PI / 2).translate(0, -ch / 2, -ch / 2);
+          const meshRight = new THREE.Mesh(geometryRight, materialRight);
+          // group.add(meshRight);
+        }
+
+        // const path = new TubeCurve(10);
+        // const geometry = new THREE.TubeGeometry(path, 1, 2, 4, false);
+
+        // const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        // const extrudeSettings = {
+        //   steps: 1,
+        //   depth: ch,
+        //   bevelEnabled: true,
+        //   bevelThickness: 1,
+        //   bevelSize: 0,
+        //   bevelOffset: 0,
+        //   bevelSegments: 1,
+        // };
+        // const geometry = new THREE.ExtrudeGeometry(rectShape, extrudeSettings);
+        // const mesh = new THREE.Mesh(geometry, material);
+
+        // group.add(mesh);
+
+        return group;
+      }
+
+      function getTextCanvas1() {
+        let texts = [
+          {
+            name: "北京",
+            value: 323
+          },
+          {
+            name: "杭州",
+            value: 121
+          },
+          {
+            name: "南京",
+            value: 56
+          }
+        ];
+        var width = 512,
+          height = 256;
+        var canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#C3C3C3";
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = 32 + 'px " bold';
+        ctx.fillStyle = "#2891FF";
+        texts.forEach((text, index) => {
+          ctx.fillText(`${text.name}:${text.value}`, 10, 32 * index + 30);
+        });
+        return canvas;
+      }
+    </script>
+  </body>
+</html>

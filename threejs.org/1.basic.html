@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      * {
+        margin: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas" width="640" height="360"></canvas>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../node_modules/three/build/three.module.js",
+          "three/addons/": "../node_modules/three/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+      const canvas = document.querySelector('#canvas');
+
+      const scene = new THREE.Scene();
+
+      const boxGeometry = new THREE.BoxGeometry(10, 10, 10);
+
+      function generateBox(geometry, color, x) {
+        const boxMaterial = new THREE.MeshPhongMaterial({ color });
+        const boxMesh = new THREE.Mesh(geometry, boxMaterial);
+        boxMesh.position.x = x;
+        scene.add(boxMesh);
+        return boxMesh;
+      }
+
+      const boxes = [
+        generateBox(boxGeometry, 0xff0000, -20),
+        generateBox(boxGeometry, 0x00ff00, 0),
+        generateBox(boxGeometry, 0x0000ff, 20)
+      ];
+
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(0, 45, 50);
+      scene.add(light);
+
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        canvas.width / canvas.height,
+        0.1,
+        100
+      );
+      camera.position.set(0, 0, 50);
+      camera.lookAt(0, 0, 0);
+      scene.add(camera);
+
+      const renderer = new THREE.WebGLRenderer({ canvas });
+      // renderer.setSize(window.innerWidth, window.innerHeight)
+      // document.body.appendChild(renderer.domElement)
+      // renderer.render(scene, camera)
+
+      function animate(time) {
+        // boxMesh.rotation.x = time / 1000
+        // boxMesh.rotation.y = time / 1000
+
+        boxes.forEach((box, idx) => {
+          const rot = ((1 + idx * 0.1) * time) / 1000;
+          box.rotation.x = rot;
+          box.rotation.y = rot;
+        });
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+      animate();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>按需渲染</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body,
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../node_modules/three/build/three.module.js",
+          "three/addons/": "../node_modules/three/examples/jsm/",
+          "lil-gui": "../node_modules/lil-gui/dist/lil-gui.esm.min.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import { GUI } from 'lil-gui';
+
+      const canvas = document.querySelector('#canvas');
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: true // canvas 透明
+      });
+
+      const scene = new THREE.Scene();
+
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        canvas.clientWidth / canvas.clientHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 0, 50);
+      camera.lookAt(0, 0, 0);
+      scene.add(camera);
+
+      const controls = new OrbitControls(camera, canvas);
+      controls.target.set(0, 0, 0);
+      controls.enableDamping = true;
+      controls.update();
+
+      const light = new THREE.AmbientLight(0xffffff, 1);
+      light.position.set(0, 45, 50);
+      scene.add(light);
+
+      const gui = new GUI();
+      const boxGeometry = new THREE.BoxGeometry(10, 10, 10);
+
+      class ColorGUIHelper {
+        constructor(object, prop) {
+          this.object = object;
+          this.prop = prop;
+        }
+        get value() {
+          return `#${this.object[this.prop].getHexString()}`;
+        }
+        set value(hexString) {
+          this.object[this.prop].set(hexString);
+        }
+      }
+
+      function generateBox(geometry, color, x) {
+        const boxMaterial = new THREE.MeshPhongMaterial({
+          color,
+          opacity: 0.5
+        });
+        const boxMesh = new THREE.Mesh(geometry, boxMaterial);
+        boxMesh.position.x = x;
+        scene.add(boxMesh);
+
+        // gui
+        const folder = gui.addFolder(`Box ${x}`);
+        folder
+          .addColor(new ColorGUIHelper(boxMaterial, 'color'), 'value')
+          .name('color')
+          .onChange(rerender);
+        folder
+          .add(boxMesh.scale, 'x', 0.1, 3)
+          .name('scale x')
+          .onChange(rerender);
+        folder.open();
+
+        return boxMesh;
+      }
+
+      generateBox(boxGeometry, 0xff0000, -20);
+      generateBox(boxGeometry, 0x00ff00, 0);
+      generateBox(boxGeometry, 0x0000ff, 20);
+
+      let renderRequested = false;
+      function animate() {
+        // 响应式
+        // canvas的size随window变化，而canvas绘制缓冲区的size与canvas视口的size无关，因此window的变化会使绘制的图形失真
+        // 1. 调整camera的宽高比，使绘制size保持一致
+        // 2. 调整渲染的宽高，使绘制像素保持一致
+        if (resizeCanvasDisplaySize()) {
+          camera.aspect = canvas.clientWidth / canvas.clientHeight;
+          camera.updateProjectionMatrix();
+        }
+
+        renderer.render(scene, camera);
+        renderRequested = false;
+      }
+      animate();
+
+      function resizeCanvasDisplaySize() {
+        const isResize =
+          canvas.clientWidth !== canvas.width ||
+          canvas.clientHeight !== canvas.height;
+        if (isResize) {
+          renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); // false 为强制更新。很重要！！！
+        }
+        return isResize;
+      }
+
+      function rerender() {
+        if (!renderRequested) {
+          renderRequested = true;
+          requestAnimationFrame(animate); // 隔 1000/60 = 16.667ms 重新渲染
+        }
+      }
+
+      controls.addEventListener('change', rerender); // 监听控制器变化，重新渲染
+      window.addEventListener('resize', rerender); // 监听窗口变化，重新渲染
+    </script>
+  </body>
+</html>
+

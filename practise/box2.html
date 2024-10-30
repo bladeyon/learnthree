@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script src="../node_modules/three/build/three.min.js"></script>
+    <script src="../node_modules/three/examples/js/controls/OrbitControls.js"></script>
+    <script>
+      let scene, camera, renderer, controls;
+      const ch = 4,
+        cw = 4;
+      // 导入贴图
+      let loader = new THREE.TextureLoader();
+      // top
+      let textureTop = loader.load("./assets/巷道默认顶.png");
+      // textureTop.magFilter = THREE.NearestFilter;
+      textureTop.wrapS = THREE.RepeatWrapping;
+      textureTop.wrapT = THREE.RepeatWrapping;
+      let textureBottom = loader.load("./assets/巷道默认底.png");
+      textureBottom.wrapS = THREE.RepeatWrapping;
+      textureBottom.wrapT = THREE.RepeatWrapping;
+      let textureLeft = loader.load("./assets/巷道左右帮风格1.png");
+      textureLeft.wrapS = THREE.RepeatWrapping;
+      textureLeft.wrapT = THREE.RepeatWrapping;
+      let textureRight = loader.load("./assets/巷道左右帮风格2.png");
+      textureRight.wrapS = THREE.RepeatWrapping;
+      textureRight.wrapT = THREE.RepeatWrapping;
+
+      function init() {
+        const w = window.innerHeight,
+          h = window.innerHeight;
+        let w_h = w / h;
+        const s = 100;
+
+        scene = new THREE.Scene(); // 场景
+        // camera = new THREE.PerspectiveCamera(80, w / h, 0.1, 100); // 透视相机
+
+        camera = new THREE.OrthographicCamera(
+          -s * w_h, // left — 摄像机视锥体左侧面。
+          s * w_h, // right — 摄像机视锥体右侧面。
+          s, // top — 摄像机视锥体上侧面。
+          -s, // bottom — 摄像机视锥体下侧面。
+          -1, // near — 摄像机视锥体近端面。
+          100 // far — 摄像机视锥体远端面。
+        ); // 正交相机
+        camera.position.set(0, 0, 10);
+        camera.zoom = 5;
+        camera.lookAt(0, 0, 1);
+
+        renderer = new THREE.WebGLRenderer(); // 渲染器
+        renderer.setSize(w, h);
+        document.getElementById("container").appendChild(renderer.domElement);
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        const gridXOY = new THREE.GridHelper(10, 10);
+        gridXOY.rotateX(Math.PI / 2);
+        gridXOY.position.set(0, 0);
+        scene.add(gridXOY);
+        // const geometry = new THREE.BoxGeometry(1, 1, 1); // 几何体
+        // const material = new THREE.MeshBasicMaterial({ color: 0x0000dd }); // 材质
+        // const cube = new THREE.Mesh(geometry, material);
+        const points = [
+          [
+            [-5, 0, 0],
+            [-3, 0, 0],
+          ],
+          [
+            [-3, 0, 0],
+            [0, 0, 0],
+          ],
+          [
+            [0, 0, 0],
+            [4, 0, 0],
+          ],
+          [
+            [4, 0, 0],
+
+            [10, 20, 0],
+          ],
+        ];
+
+        points.forEach((p) => {
+          const group = generateCube(
+            new THREE.Vector3(...p[0]),
+            new THREE.Vector3(...p[1])
+          );
+          // group.scale = new THREE.Vector3(12, 12, 12);
+          scene.add(group);
+        });
+
+        // 添加模型
+        animate();
+        function animate() {
+          requestAnimationFrame(animate);
+          controls.update();
+          // cube.rotation.x += 0.01;
+          // cube.rotation.y += 0.01;
+
+          renderer.render(scene, camera);
+        }
+      }
+
+      window.onload = init();
+
+      function generateCube(p1, p2) {
+        // console.log(p1, p2);
+        const group = new THREE.Group();
+
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+        const lineMaterial = new THREE.LineBasicMaterial({
+          color: 0xff0000,
+          linewidth: 1,
+        });
+        const line = new THREE.Line(lineGeometry, lineMaterial);
+        line.translateZ(ch);
+        group.add(line); // p1p2 是所在平面的中线
+
+        // 两点的距离
+        let d = p1.distanceTo(p2);
+        // 与x轴夹角 deg
+        let deg,
+          tan_deg,
+          dx,
+          dy,
+          dir = 1;
+        let vd = new THREE.Vector3().subVectors(p2, p1).normalize(); // 法向量
+        let deg_rad = vd.angleTo(new THREE.Vector3(1, 0, 0));
+        deg = (deg_rad * 180) / Math.PI;
+        if (vd.y < 0) {
+          dir = -1;
+        }
+
+        // 居中 (0,0,0),记录偏移量
+        const lineGeometryC = lineGeometry.clone();
+        let center = new THREE.Vector3();
+        lineGeometryC.computeBoundingBox();
+        lineGeometryC.boundingBox.getCenter(center);
+
+        lineGeometryC.center();
+        lineGeometryC.rotateZ(-dir * deg_rad);
+        let { min: np1, max: np2 } = lineGeometryC.boundingBox;
+        lineGeometryC.dispose(); // 销毁
+
+        // top 和 bottom
+        const rectTB = new THREE.Shape()
+          .moveTo(np1.x, np1.y + cw / 2)
+          .lineTo(np1.x, np1.y - cw / 2)
+          .lineTo(np2.x, np2.y - cw / 2)
+          .lineTo(np2.x, np2.y + cw / 2)
+          .lineTo(np1.x, np1.y + cw / 2);
+        const geometryTB = new THREE.ShapeGeometry(rectTB);
+
+        // left 和 right
+        const rectLR = new THREE.Shape()
+          .moveTo(np1.x, np1.y + ch / 2)
+          .lineTo(np1.x, np1.y - ch / 2)
+          .lineTo(np2.x, np2.y - ch / 2)
+          .lineTo(np2.x, np2.y + ch / 2)
+          .lineTo(np1.x, np1.y + ch / 2);
+        const geometryLR = new THREE.ShapeGeometry(rectLR);
+
+        {
+          // Top
+          const materialTop = new THREE.MeshLambertMaterial({
+            map: textureTop,
+            side: THREE.DoubleSide,
+          });
+          const geometryTop = geometryTB.clone();
+          geometryTop.rotateX(Math.PI);
+          geometryTop.rotateZ(deg_rad * dir);
+          geometryTop.translate(center.x, center.y, ch);
+          const meshTop = new THREE.Mesh(geometryTop, materialTop);
+          group.add(meshTop);
+        }
+
+        {
+          // Bottom
+          const materialBottom = new THREE.MeshLambertMaterial({
+            map: textureBottom,
+            side: THREE.DoubleSide,
+          });
+          const geometryBottom = geometryTB.clone();
+          geometryBottom.rotateZ(deg_rad * dir);
+          geometryBottom.translate(center.x, center.y, 0);
+          const meshBottom = new THREE.Mesh(geometryBottom, materialBottom);
+          group.add(meshBottom);
+        }
+        {
+          // Left
+          const materialLeft = new THREE.MeshLambertMaterial({
+            map: textureLeft,
+            side: THREE.DoubleSide,
+          });
+          const geometryLeft = geometryLR.clone();
+          geometryLeft.rotateX(Math.PI / 2);
+          geometryLeft.translate(0, cw / 2, 0);
+          geometryLeft.rotateZ(deg_rad * dir);
+          geometryLeft.translate(center.x, center.y, ch / 2);
+          const meshLeft = new THREE.Mesh(geometryLeft, materialLeft);
+          group.add(meshLeft);
+        }
+        {
+          // Right
+          const materialRight = new THREE.MeshLambertMaterial({
+            map: textureRight,
+            side: THREE.DoubleSide,
+          });
+          const geometryRight = geometryLR.clone();
+          geometryRight.rotateX(Math.PI / 2);
+          geometryRight.translate(0, -cw / 2, 0);
+          geometryRight.rotateZ(deg_rad * dir);
+          geometryRight.translate(center.x, center.y, ch / 2);
+          const meshRight = new THREE.Mesh(geometryRight, materialRight);
+          group.add(meshRight);
+        }
+
+        const light = new THREE.PointLight(0xefd9ac, 1, 50, 2);
+        light.position.set(0, 0, ch);
+        light.translateX(center.x);
+        light.translateY(center.y);
+        light.castShadow = true; // default false
+        const lightSphere = new THREE.SphereGeometry(
+          cw / 20,
+          16,
+          8,
+          0,
+          -Math.PI,
+          0,
+          Math.PI
+        );
+        // lightSphere.phiLenght = Math.PI;
+        light.add(
+          new THREE.Mesh(
+            lightSphere,
+            new THREE.MeshBasicMaterial({
+              color: 0xefd9ac,
+              side: THREE.DoubleSide,
+            })
+          )
+        );
+        group.add(light);
+
+        return group;
+      }
+    </script>
+  </body>
+</html>

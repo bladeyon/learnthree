@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camera</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body,
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+
+      .split {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+
+        div {
+          width: 100%;
+          height: 100%;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
+    <div class="split">
+      <div id="view1"></div>
+      <div id="view2"></div>
+    </div>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../node_modules/three/build/three.module.js",
+          "three/addons/": "../node_modules/three/examples/jsm/",
+          "lil-gui": "../node_modules/lil-gui/dist/lil-gui.esm.min.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import GUI from 'lil-gui';
+
+      const canvas = document.querySelector('#canvas');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      const v1El = document.querySelector('#view1');
+      const v2El = document.querySelector('#view2');
+
+      const scene = new THREE.Scene();
+
+      const camera = new THREE.PerspectiveCamera(40, 2, 0.1, 500);
+      camera.position.set(0, 0, 50);
+      camera.up.set(0, 0, 1);
+      camera.lookAt(0, 0, 0);
+      scene.add(camera);
+
+      const cameraHelper = new THREE.CameraHelper(camera);
+      scene.add(cameraHelper);
+
+      const controls = new OrbitControls(camera, v1El);
+      controls.target.set(0, 0, 0);
+      controls.update();
+
+      const camera2 = new THREE.PerspectiveCamera(40, 2, 0.1, 500);
+      camera2.position.set(40, 10, 30);
+      camera2.lookAt(0, 5, 0);
+
+      const controls2 = new OrbitControls(camera2, v2El);
+      controls2.target.set(0, 5, 0);
+      controls2.update();
+
+      const light = new THREE.AmbientLight(0xffffff, 3); // 环境光
+      light.position.set(0, 10, 0);
+      scene.add(light);
+      // const lightHelper = new THREE.LightProbeHelper(light);
+      // scene.add(lightHelper);
+
+      const objects = [],
+        planeSize = 40;
+
+      const loader = new THREE.TextureLoader();
+      const texture = loader.load('./resource/checker.png');
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.magFilter = THREE.NearestFilter;
+      const repeats = planeSize / 2;
+      texture.repeat.set(repeats, repeats);
+
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        side: THREE.DoubleSide
+      });
+
+      const geometry = new THREE.PlaneGeometry(planeSize, planeSize);
+      const plane = new THREE.Mesh(geometry, material);
+      plane.rotation.x = Math.PI * -0.5;
+      scene.add(plane);
+      // objects.push(plane);
+
+      const boxSize = 5;
+      const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+      const boxMaterial = new THREE.MeshPhongMaterial({ color: '#8AC' });
+      const box = new THREE.Mesh(boxGeometry, boxMaterial);
+      box.position.set(boxSize + 1, boxSize / 2, 0);
+      scene.add(box);
+      // objects.push(box);
+
+      const sphereRadius = 3,
+        sphereWidthDivisions = 32,
+        sphereHeightDivisions = 16;
+      const sphereGeometry = new THREE.SphereGeometry(
+        sphereRadius,
+        sphereWidthDivisions,
+        sphereHeightDivisions
+      );
+      const sphereMaterial = new THREE.MeshPhongMaterial({ color: '#CA8' });
+      const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      sphere.position.set(-sphereRadius - 1, sphereRadius + 2, 0);
+      scene.add(sphere);
+
+      function animate(time) {
+        // objects.forEach((box, idx) => {
+        //   const rot = time / 5000;
+        //   box.rotation.x = rot;
+        //   box.rotation.y = rot;
+        // });
+
+        // 响应式
+        // canvas的size随window变化，而canvas绘制缓冲区的size与canvas视口的size无关，因此window的变化会使绘制的图形失真
+        // 1. 调整camera的宽高比，使绘制size保持一致
+        // 2. 调整渲染的宽高，使绘制像素保持一致
+        // if (resizeCanvasDisplaySize()) {
+        //   camera.aspect = canvas.clientWidth / canvas.clientHeight;
+        //   camera.updateProjectionMatrix();
+        // }
+
+        // renderer.render(scene, camera);
+
+        resizeCanvasDisplaySize(renderer);
+
+        // 启用剪刀函数
+        renderer.setScissorTest(true);
+
+        // 渲染主视野
+        {
+          const aspect = setScissorForElement(v1El);
+
+          // 用计算出的aspect修改摄像机参数
+          camera.aspect = aspect;
+          camera.updateProjectionMatrix();
+          cameraHelper.update();
+
+          // 来原视野中不要绘制cameraHelper
+          cameraHelper.visible = false;
+
+          scene.background = 0x000000;
+
+          // 渲染
+          renderer.render(scene, camera);
+        }
+
+        // 渲染第二台摄像机
+        {
+          const aspect = setScissorForElement(v2El);
+
+          // 调整aspect
+          camera2.aspect = aspect;
+          camera2.updateProjectionMatrix();
+
+          // 在第二台摄像机中绘制cameraHelper
+          cameraHelper.visible = true;
+
+          scene.background = 0x000040;
+
+          renderer.render(scene, camera2);
+        }
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      function resizeCanvasDisplaySize() {
+        const isResize =
+          canvas.clientWidth !== canvas.width ||
+          canvas.clientHeight !== canvas.height;
+        if (isResize) {
+          renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); // false 为强制更新。很重要！！！
+        }
+        return isResize;
+      }
+
+      function setScissorForElement(elem) {
+        const canvasRect = canvas.getBoundingClientRect();
+        const elemRect = elem.getBoundingClientRect();
+
+        // 计算canvas的尺寸
+        const right =
+          Math.min(elemRect.right, canvasRect.right) - canvasRect.left;
+        const left = Math.max(0, elemRect.left - canvasRect.left);
+        const bottom =
+          Math.min(elemRect.bottom, canvasRect.bottom) - canvasRect.top;
+        const top = Math.max(0, elemRect.top - canvasRect.top);
+
+        const width = Math.min(canvasRect.width, right - left);
+        const height = Math.min(canvasRect.height, bottom - top);
+
+        // 设置剪函数以仅渲染一部分场景
+        const positiveYUpBottom = canvasRect.height - bottom;
+        renderer.setScissor(left, positiveYUpBottom, width, height);
+        renderer.setViewport(left, positiveYUpBottom, width, height);
+
+        // 返回aspect
+        return width / height;
+      }
+    </script>
+  </body>
+</html>

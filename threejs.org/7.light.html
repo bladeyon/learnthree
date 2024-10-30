@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>光照</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body,
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../node_modules/three/build/three.module.js",
+          "three/addons/": "../node_modules/three/examples/jsm/",
+          "lil-gui": "../node_modules/lil-gui/dist/lil-gui.esm.min.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import GUI from 'lil-gui';
+
+      const canvas = document.querySelector('#canvas');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+
+      const scene = new THREE.Scene();
+
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        canvas.clientWidth / canvas.clientHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 0, 50);
+      camera.up.set(0, 0, 1);
+      camera.lookAt(0, 0, 0);
+      scene.add(camera);
+      // const cHelper = new THREE.CameraHelper(camera);
+      // scene.add(cHelper);
+
+      const controls = new OrbitControls(camera, canvas);
+      controls.target.set(0, 0, 0);
+      controls.update();
+
+      // const light = new THREE.AmbientLight(0xffffff, 3); // 环境光
+      // const light = new THREE.DirectionalLight(0xffffff, 3); // 平行光
+      const light = new THREE.PointLight(0xffffff, 130);
+      light.position.set(0, 10, 0);
+      scene.add(light);
+      // light.target.position.set(-5, 0, 0);
+      // scene.add(light.target);
+      // const lightHelper = new THREE.DirectionalLightHelper(light);
+      const lightHelper = new THREE.PointLightHelper(light);
+      scene.add(lightHelper);
+
+      class ColorGUIHelper {
+        constructor(object, prop) {
+          this.object = object;
+          this.prop = prop;
+        }
+        get value() {
+          return `#${this.object[this.prop].getHexString()}`;
+        }
+        set value(hexString) {
+          this.object[this.prop].set(hexString);
+        }
+      }
+
+      const gui = new GUI();
+      gui.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
+      gui.add(light, 'intensity', 0, 5, 0.2);
+
+      const objects = [],
+        planeSize = 40;
+
+      const loader = new THREE.TextureLoader();
+      const texture = loader.load('./resource/checker.png');
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.magFilter = THREE.NearestFilter;
+      const repeats = planeSize / 2;
+      texture.repeat.set(repeats, repeats);
+
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        side: THREE.DoubleSide
+      });
+
+      const geometry = new THREE.PlaneGeometry(planeSize, planeSize);
+      const plane = new THREE.Mesh(geometry, material);
+      plane.rotation.x = Math.PI * -0.5;
+      scene.add(plane);
+      // objects.push(plane);
+
+      const boxSize = 5;
+      const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+      const boxMaterial = new THREE.MeshPhongMaterial({ color: '#8AC' });
+      const box = new THREE.Mesh(boxGeometry, boxMaterial);
+      box.position.set(boxSize + 1, boxSize / 2, 0);
+      scene.add(box);
+      // objects.push(box);
+
+      const sphereRadius = 3,
+        sphereWidthDivisions = 32,
+        sphereHeightDivisions = 16;
+      const sphereGeometry = new THREE.SphereGeometry(
+        sphereRadius,
+        sphereWidthDivisions,
+        sphereHeightDivisions
+      );
+      const sphereMaterial = new THREE.MeshPhongMaterial({ color: '#CA8' });
+      const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      sphere.position.set(-sphereRadius - 1, sphereRadius + 2, 0);
+      scene.add(sphere);
+      // objects.push(sphere);
+
+      function animate(time) {
+        objects.forEach((box, idx) => {
+          const rot = time / 5000;
+          box.rotation.x = rot;
+          box.rotation.y = rot;
+        });
+
+        // 响应式
+        // canvas的size随window变化，而canvas绘制缓冲区的size与canvas视口的size无关，因此window的变化会使绘制的图形失真
+        // 1. 调整camera的宽高比，使绘制size保持一致
+        // 2. 调整渲染的宽高，使绘制像素保持一致
+        if (resizeCanvasDisplaySize()) {
+          camera.aspect = canvas.clientWidth / canvas.clientHeight;
+          camera.updateProjectionMatrix();
+        }
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      function resizeCanvasDisplaySize() {
+        const isResize =
+          canvas.clientWidth !== canvas.width ||
+          canvas.clientHeight !== canvas.height;
+        if (isResize) {
+          renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); // false 为强制更新。很重要！！！
+        }
+        return isResize;
+      }
+    </script>
+  </body>
+</html>

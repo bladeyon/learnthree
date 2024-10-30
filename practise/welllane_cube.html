@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="../node_modules/three/build/three.min.js"></script>
+    <script src="../node_modules/three/examples/js/controls/OrbitControls.js"></script>
+    <script src="../node_modules/three/examples/js/controls/DragControls.js"></script>
+    <!-- <script src="../node_modules/three/examples/js/renderers/CSS2DRenderer.js"></script> -->
+    <script src="./welllane.js"></script>
+
+    <script>
+      let w, h;
+      initSize();
+      // 巷道宽、高
+      const cw = 4,
+        ch = 3;
+      // class TubeCurve extends THREE.Curve {
+      //   constructor() {
+      //     super();
+      //   }
+      //   getPoint(t, optionalTarget = new THREE.Vector3()) {
+      //     const tx = t * 3 - 1.5;
+      //     const ty = Math.sin(2 * Math.PI * t);
+      //     const tz = 0;
+
+      //     return optionalTarget.set(tx, ty, tz).multiplyScalar(this.scale);
+      //   }
+      // }
+
+      const scene = new THREE.Scene();
+      const renderer = new THREE.WebGLRenderer();
+      renderer.setSize(w, h);
+      // renderer.domElement.style.position = "absolute";
+      // renderer.domElement.style.top = "0px";
+
+      document.body.appendChild(renderer.domElement);
+      // const camera = new THREE.PerspectiveCamera(
+      //   90, // fov 摄像机视锥体垂直视野角度
+      //   w / h, // aspect 摄像机视锥体的长宽比，通常是使用画布的宽/画布的高。默认值是1（正方形画布）。
+      //   0.1, // near — 摄像机视锥体近端面
+      //   20000 // far 摄像机视锥体远端面
+      // );
+      const camera = new THREE.OrthographicCamera(
+        w / -2, // left — 摄像机视锥体左侧面。
+        w / 2, // right — 摄像机视锥体右侧面。
+        h / 2, // top — 摄像机视锥体上侧面。
+        h / -2, // bottom — 摄像机视锥体下侧面。
+        0.1, // near — 摄像机视锥体近端面。
+        20000 // far — 摄像机视锥体远端面。
+      ); // 正交相机
+      camera.position.set(0, 0, 10000);
+      camera.zoom = 2;
+      camera.lookAt(0, 0, 0);
+
+      const gridXOY = new THREE.GridHelper(1000, 10);
+      gridXOY.rotateX(Math.PI / 2);
+      gridXOY.position.set(500, 500);
+
+      // scene.add(gridXOY);
+
+      const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+
+      // 导入贴图
+      let loader = new THREE.TextureLoader();
+      // top
+      let textureTop = loader.load("./assets/巷道默认顶.png");
+      textureTop.wrapS = THREE.RepeatWrapping;
+      textureTop.wrapT = THREE.RepeatWrapping;
+      let textureBottom = loader.load("./assets/巷道默认底.png");
+      textureBottom.wrapS = THREE.RepeatWrapping;
+      textureBottom.wrapT = THREE.RepeatWrapping;
+      let textureLeft = loader.load("./assets/巷道左右帮风格1.png");
+      textureLeft.wrapS = THREE.RepeatWrapping;
+      textureLeft.wrapT = THREE.RepeatWrapping;
+      let textureRight = loader.load("./assets/巷道左右帮风格2.png");
+      textureRight.wrapS = THREE.RepeatWrapping;
+      textureRight.wrapT = THREE.RepeatWrapping;
+      // 巷道
+      let minX, minY;
+      const pMap = new Map();
+      welllane.vertexes.forEach((p, i) => {
+        if (i === 0) {
+          minX = p.x;
+          minY = p.y;
+        } else {
+          if (minX > p.x) {
+            minX = Math.ceil(p.x);
+          }
+          if (minY > p.y) {
+            minY = Math.ceil(p.y);
+          }
+        }
+        pMap.set(p.id, { x: p.x, y: p.y, z: p.z });
+      });
+
+      // 连线
+      const objects = [];
+      const group = new THREE.Group();
+      // const geometrys = new THREE.BufferGeometry();
+      welllane.edges.forEach((e, i) => {
+        const pointIds = e.vertexIds;
+        if (pointIds.length) {
+          // && i <= 100
+          const p1 = pMap.get(pointIds[0]),
+            p2 = pMap.get(pointIds[1]);
+          let vector1 = new THREE.Vector3(p1.x, p1.y, 0);
+          let vector2 = new THREE.Vector3(p2.x, p2.y, 0);
+
+          let s = generateCube(vector1, vector2);
+
+          group.add(s);
+        }
+      });
+      group.position.set(-minX, -minY, 0);
+      // group.scale.multiplyScalar(0.99);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+      scene.add(group);
+      // scene.updateMatrixWorld(true);
+      // let worldPosition = new THREE.Vector3();
+      // group.getWorldPosition(worldPosition);
+      // console.log(worldPosition);
+      // let worldScale = new THREE.Vector3();
+      // group.getWorldScale(worldScale);
+      // console.log(worldScale);
+
+      animate();
+      function animate() {
+        requestAnimationFrame(animate);
+        camera.updateProjectionMatrix();
+        controls.update();
+        render();
+      }
+      window.addEventListener("resize", onWindowResize);
+
+      function render() {
+        renderer.render(scene, camera);
+      }
+
+      function initSize() {
+        w = window.innerWidth * 0.9;
+        h = window.innerHeight * 0.9;
+      }
+
+      function onWindowResize() {
+        initSize();
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(w, h);
+      }
+
+      function generateCube(p1, p2) {
+        // console.log(p1, p2);
+        const group = new THREE.Group();
+
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+        const lineMaterial = new THREE.LineBasicMaterial({
+          color: 0xff0000,
+          linewidth: 1,
+        });
+        const line = new THREE.Line(lineGeometry, lineMaterial);
+        line.translateZ(ch);
+        group.add(line); // p1p2 是所在平面的中线
+
+        // 两点的距离
+        let d = p1.distanceTo(p2);
+        // 与x轴夹角 deg
+        let deg,
+          tan_deg,
+          dx,
+          dy,
+          dir = 1;
+        let vd = new THREE.Vector3().subVectors(p2, p1).normalize(); // 法向量
+        let deg_rad = vd.angleTo(new THREE.Vector3(1, 0, 0));
+        deg = (deg_rad * 180) / Math.PI;
+        if (vd.y < 0) {
+          dir = -1;
+        }
+
+        // 居中 (0,0,0),记录偏移量
+        const lineGeometryC = lineGeometry.clone();
+        let center = new THREE.Vector3();
+        lineGeometryC.computeBoundingBox();
+        lineGeometryC.boundingBox.getCenter(center);
+
+        lineGeometryC.center();
+        lineGeometryC.rotateZ(-dir * deg_rad);
+        let { min: np1, max: np2 } = lineGeometryC.boundingBox;
+        lineGeometryC.dispose(); // 销毁
+
+        // top 和 bottom
+        const rectTB = new THREE.Shape()
+          .moveTo(np1.x, np1.y + cw / 2)
+          .lineTo(np1.x, np1.y - cw / 2)
+          .lineTo(np2.x, np2.y - cw / 2)
+          .lineTo(np2.x, np2.y + cw / 2)
+          .lineTo(np1.x, np1.y + cw / 2);
+        const geometryTB = new THREE.ShapeGeometry(rectTB);
+
+        // left 和 right
+        const rectLR = new THREE.Shape()
+          .moveTo(np1.x, np1.y + ch / 2)
+          .lineTo(np1.x, np1.y - ch / 2)
+          .lineTo(np2.x, np2.y - ch / 2)
+          .lineTo(np2.x, np2.y + ch / 2)
+          .lineTo(np1.x, np1.y + ch / 2);
+        const geometryLR = new THREE.ShapeGeometry(rectLR);
+
+        {
+          // Top
+          const materialTop = new THREE.MeshBasicMaterial({
+            map: textureTop,
+            side: THREE.DoubleSide,
+          });
+          const geometryTop = geometryTB.clone();
+          geometryTop.rotateX(Math.PI);
+          geometryTop.rotateZ(deg_rad * dir);
+          geometryTop.translate(center.x, center.y, ch);
+          const meshTop = new THREE.Mesh(geometryTop, materialTop);
+          group.add(meshTop);
+        }
+
+        {
+          // Bottom
+          const materialBottom = new THREE.MeshLambertMaterial({
+            map: textureBottom,
+            side: THREE.DoubleSide,
+          });
+          const geometryBottom = geometryTB.clone();
+          geometryBottom.rotateZ(deg_rad * dir);
+          geometryBottom.translate(center.x, center.y, 0);
+          const meshBottom = new THREE.Mesh(geometryBottom, materialBottom);
+          group.add(meshBottom);
+        }
+        {
+          // Left
+          const materialLeft = new THREE.MeshLambertMaterial({
+            map: textureLeft,
+            side: THREE.DoubleSide,
+          });
+          const geometryLeft = geometryLR.clone();
+          geometryLeft.rotateX(Math.PI / 2);
+          geometryLeft.translate(0, cw / 2, 0);
+          geometryLeft.rotateZ(deg_rad * dir);
+          geometryLeft.translate(center.x, center.y, ch / 2);
+          const meshLeft = new THREE.Mesh(geometryLeft, materialLeft);
+          group.add(meshLeft);
+        }
+        {
+          // Right
+          const materialRight = new THREE.MeshLambertMaterial({
+            map: textureRight,
+            side: THREE.DoubleSide,
+          });
+          const geometryRight = geometryLR.clone();
+          geometryRight.rotateX(Math.PI / 2);
+          geometryRight.translate(0, -cw / 2, 0);
+          geometryRight.rotateZ(deg_rad * dir);
+          geometryRight.translate(center.x, center.y, ch / 2);
+          const meshRight = new THREE.Mesh(geometryRight, materialRight);
+          group.add(meshRight);
+        }
+
+        const light = new THREE.PointLight(0xefd9ac, 1, 50, 2);
+        light.position.set(0, 0, ch);
+        light.translateX(center.x);
+        light.translateY(center.y);
+        light.castShadow = true; // default false
+        const lightSphere = new THREE.SphereGeometry(
+          cw / 10,
+          16,
+          8
+          // 0,
+          // -Math.PI,
+          // 0,
+          // Math.PI
+        );
+        // lightSphere.phiLenght = Math.PI;
+        light.add(
+          new THREE.Mesh(
+            lightSphere,
+            new THREE.MeshBasicMaterial({
+              color: 0xefd9ac,
+              side: THREE.DoubleSide,
+            })
+          )
+        );
+        group.add(light);
+
+        return group;
+      }
+      const mouse = new THREE.Vector2(),
+        raycaster = new THREE.Raycaster();
+      window.addEventListener("click", function (e) {
+        mouse.x = (e.layerX / w) * 2 - 1;
+        mouse.y = -(e.layerY / h) * 2 + 1;
+        let px = mouse.x * 10000 + minX;
+        let py = mouse.y * 10000 + minY;
+        console.log("click", mouse, px, py);
+      });
+    </script>
+  </body>
+</html>

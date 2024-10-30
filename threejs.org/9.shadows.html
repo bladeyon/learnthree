@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shadows</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body,
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+
+      .split {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+
+        div {
+          width: 100%;
+          height: 100%;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../node_modules/three/build/three.module.js",
+          "three/addons/": "../node_modules/three/examples/jsm/",
+          "lil-gui": "../node_modules/lil-gui/dist/lil-gui.esm.min.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import GUI from 'lil-gui';
+
+      const canvas = document.querySelector('#canvas');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.shadowMap.enabled = true;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xffffff);
+
+      const camera = new THREE.PerspectiveCamera(40, 2, 0.1, 500);
+      camera.position.set(0, 0, 50);
+      camera.up.set(0, 0, 1);
+      camera.lookAt(0, 0, 0);
+      scene.add(camera);
+
+      // const cameraHelper = new THREE.CameraHelper(camera);
+      // scene.add(cameraHelper);
+
+      const controls = new OrbitControls(camera, canvas);
+      controls.target.set(0, 0, 0);
+      controls.update();
+
+      const loader = new THREE.TextureLoader();
+      const objects = [];
+
+      {
+        const planeSize = 40;
+
+        const texture = loader.load('./resource/checker.png');
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.magFilter = THREE.NearestFilter;
+        const repeats = planeSize / 2;
+        texture.repeat.set(repeats, repeats);
+
+        const material = new THREE.MeshBasicMaterial({
+          map: texture,
+          side: THREE.DoubleSide
+        });
+        material.color.setRGB(1.5, 1.5, 1.5);
+
+        const geometry = new THREE.PlaneGeometry(planeSize, planeSize);
+        const plane = new THREE.Mesh(geometry, material);
+        plane.rotation.x = Math.PI * -0.5;
+        plane.receiveShadow = true;
+        scene.add(plane);
+        // objects.push(plane);
+      }
+
+      const sphereShadowBases = [];
+
+      {
+        const shadowTexture = loader.load('./resource/roundshadow.png');
+
+        const planeSize = 1;
+        const shadowGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
+
+        const sphereRadius = 1,
+          sphereWidthDivisions = 32,
+          sphereHeightDivisions = 16;
+        const sphereGeometry = new THREE.SphereGeometry(
+          sphereRadius,
+          sphereWidthDivisions,
+          sphereHeightDivisions
+        );
+
+        // const shadowMaterial = new THREE.MeshBasicMaterial({
+        //   map: shadowTexture,
+        //   transparent: true,
+        //   depthWrite: false
+        // });
+        const numSpheres = 2;
+        for (let i = 0; i < numSpheres; i++) {
+          const base = new THREE.Object3D();
+          scene.add(base);
+
+          // 每次重新创建，不然会出现阴影不一致的问题
+          const shadowMaterial = new THREE.MeshBasicMaterial({
+            map: shadowTexture,
+            transparent: true,
+            depthWrite: false
+          });
+          const shadowMesh = new THREE.Mesh(shadowGeometry, shadowMaterial);
+          shadowMesh.position.y = 0.001;
+          shadowMesh.rotation.x = -Math.PI / 2;
+          const shadowSize = sphereRadius * 4;
+          shadowMesh.scale.set(shadowSize, shadowSize, shadowSize);
+          base.add(shadowMesh);
+
+          const u = i / numSpheres;
+          const sphereMaterial = new THREE.MeshPhongMaterial();
+          sphereMaterial.color.setHSL(u, 1, 0.75);
+          const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+          sphereMesh.position.set(0, sphereRadius + 2, 0);
+          base.add(sphereMesh);
+
+          sphereShadowBases.push({
+            base,
+            sphereMesh,
+            shadowMesh,
+            y: sphereMesh.position.y
+          });
+        }
+      }
+
+      {
+        const skyColor = 0xb1e1ff;
+        const groundColor = 0xb97a20;
+        const intensity = 0.75;
+        const light = new THREE.HemisphereLight(
+          skyColor,
+          groundColor,
+          intensity
+        );
+        scene.add(light);
+      }
+
+      {
+        const color = 0xffffff;
+        const intensity = 2.5;
+        const light = new THREE.DirectionalLight(color, intensity);
+        light.position.set(0, 10, 5);
+        light.target.position.set(-5, 0, 0);
+        light.castShadow = true;
+        scene.add(light);
+        scene.add(light.target);
+      }
+
+      function animate(time) {
+        time *= 0.001;
+
+        sphereShadowBases.forEach((sphereShadowBase, idx) => {
+          const { base, sphereMesh, shadowMesh, y } = sphereShadowBase;
+          const u = idx / sphereShadowBases.length;
+          const speed = time * 0.2;
+          const angle = speed + u * Math.PI * 2 * (idx % 1 ? 1 : -1);
+          const radius = Math.sin(speed - idx) * 10;
+          base.position.set(
+            Math.cos(angle) * radius,
+            0,
+            Math.sin(angle) * radius
+          );
+
+          const yOff = Math.abs(Math.sin(time * 2 + idx));
+
+          sphereMesh.position.y = y + THREE.MathUtils.lerp(-2, 2, yOff);
+          shadowMesh.material.opacity = THREE.MathUtils.lerp(1, 0.25, yOff);
+        });
+        resizeCanvasDisplaySize(renderer);
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      function resizeCanvasDisplaySize() {
+        const isResize =
+          canvas.clientWidth !== canvas.width ||
+          canvas.clientHeight !== canvas.height;
+        if (isResize) {
+          renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); // false 为强制更新。很重要！！！
+        }
+        return isResize;
+      }
+    </script>
+  </body>
+</html>
