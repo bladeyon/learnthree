@@ -1,0 +1,27 @@
+{
+  "name": "learn-three",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "lil-gui": "^0.19.1",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bladeyon/learnthree.git"
+  },
+  "keywords": [
+    "threejs"
+  ],
+  "author": "bladey",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bladeyon/learnthree/issues"
+  },
+  "homepage": "https://github.com/bladeyon/learnthree#readme"
+}
